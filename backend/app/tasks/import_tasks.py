@@ -1,8 +1,10 @@
-from celery import shared_task
+# from celery import shared_task
+from app.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.services.import_service import execute_import_job
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3)
 def run_import_job(self, job_id: str):
     db = SessionLocal()
     try:
