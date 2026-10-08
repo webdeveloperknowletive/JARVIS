@@ -1,9 +1,6 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: jarvis_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: jarvis_crm
@@ -19,7 +16,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: jarvis_redis
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -33,12 +29,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-     command:
-    - sh
-    - -c
-    - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers 
-    container_name: jarvis_api
     restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"
+    expose:
+      - "8000"
     environment:
       - ENVIRONMENT=production
       - DEBUG=false
@@ -58,10 +55,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: jarvis_worker
     restart: unless-stopped
-    command: celery -A app.worker.celery_app worker --loglevel=info
-       environment:
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app
+      - worker
+      - --loglevel=info
+    environment:
       - ENVIRONMENT=production
       - DEBUG=false
       - DATABASE_URL=postgresql://jarvis_user:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}@postgres:5432/jarvis_crm
@@ -80,19 +81,25 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: jarvis_frontend
     restart: unless-stopped
+    expose:
+      - "80"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
 
   beat:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: jarvis_beat
     restart: unless-stopped
-    command: celery -A app.worker.celery_app beat --loglevel=info
-        environment:
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app
+      - beat
+      - --loglevel=info
+    environment:
       - ENVIRONMENT=production
       - DEBUG=false
       - DATABASE_URL=postgresql://jarvis_user:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}@postgres:5432/jarvis_crm
